@@ -21,7 +21,7 @@ metadata:
     component: fizzbuzzer
 spec:
   serviceName: fizzbuzzer
-  replicas: 100
+  replicas: 101
   template:
     metadata:
       name: fizzbuzzer

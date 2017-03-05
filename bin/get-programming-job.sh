@@ -85,7 +85,6 @@ fizzbuzz_teardown() {
 # ex: cluster.example.com
 CLUSTER_NAME=$1
 
-
 if [ -z "$CLUSTER_NAME" ]; then
     echo "Must provide a Route53 Hosted Zone Name like 'cluster.example.com'. It must exist."; exit 1;
 fi
@@ -128,7 +127,7 @@ kubectl --context $CLUSTER_NAME apply -f ./configs/fluentd.yml
 wait_for_pods fluentd-logging kube-system 4
 
 kubectl --context $CLUSTER_NAME apply -f ./configs/fizzbuzzer.yml
-wait_for_pods fizzbuzzer default 100
+wait_for_pods fizzbuzzer default 101
 
 echo "[🏃 Running] Done! All of the pods should be up!"
 
