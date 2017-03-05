@@ -18,6 +18,12 @@ Dependencies:
     + `arn:aws:iam::aws:policy/IAMFullAccess`
     + `arn:aws:iam::aws:policy/AmazonVPCFullAccess`
 
+Then, finally,
+
+```bash
+./bin/get-programming-job.sh cluster.example.com
+```
+
 ## What Happens
 
 - Create an S3 bucket to store the `kops` state,

@@ -6,12 +6,6 @@
 # http://unix.stackexchange.com/questions/45404/why-cant-tr-read-from-dev-urandom-on-osx
 LC_CTYPE=C
 
-ARNS="arn:aws:iam::aws:policy/AmazonEC2FullAccess
-arn:aws:iam::aws:policy/AmazonRoute53FullAccess
-arn:aws:iam::aws:policy/AmazonS3FullAccess
-arn:aws:iam::aws:policy/IAMFullAccess
-arn:aws:iam::aws:policy/AmazonVPCFullAccess"
-
 check_for() {
   command -v $1 >/dev/null 2>&1 || { echo >&2 "I require $1 but it's not installed. Aborting."; exit 1; }
 }
@@ -28,39 +22,6 @@ confirm_dependencies() {
   else
     echo "Must have a Route53 Hosted Zone previously set up. Aborting."; exit 1;
   fi
-}
-
-build_iam_user() {
-  USER_NAME=$1
-
-  aws iam create-group --group-name $USER_NAME > /dev/null
-
-  for arn in $ARNS; do
-    aws iam attach-group-policy \
-      --policy-arn "$arn" \
-      --group-name $USER_NAME > /dev/null
-  done
-
-  aws iam create-user --user-name $USER_NAME > /dev/null
-
-  aws iam add-user-to-group --user-name $USER_NAME --group-name $USER_NAME > /dev/null
-
-  aws iam create-access-key --user-name $USER_NAME | jq '.AccessKey | { secret: .SecretAccessKey, key: .AccessKeyId }'
-}
-
-delete_iam_user() {
-  USER_NAME=$1
-  ACCESS_KEY_ID=$(aws iam list-access-keys --user-name $USER_NAME | jq -r '.AccessKeyMetadata[0].AccessKeyId')
-
-  aws iam remove-user-from-group --user-name $USER_NAME --group-name $USER_NAME
-  aws iam delete-access-key --user-name $USER_NAME --access-key-id $ACCESS_KEY_ID
-  aws iam delete-user --user-name $USER_NAME
-  for arn in $ARNS; do
-    aws iam detach-group-policy \
-      --policy-arn "$arn" \
-      --group-name $USER_NAME
-  done
-  aws iam delete-group --group-name $USER_NAME
 }
 
 create_state_store() {
@@ -112,23 +73,11 @@ fizzbuzz_teardown() {
   kops delete cluster $CLUSTER_NAME --yes
   echo "[💥 Teardown] Done deleting kops cluster $CLUSTER_NAME"
 
-  echo "I am: $(aws iam get-user | jq -r '.User.UserName')"
-  env
-
   echo "[💥 Teardown] Deleting kops state store $UNIQUE_ID ..."
   delete_state_store $UNIQUE_ID
   echo "[💥 Teardown] Done deleting kops state store $UNIQUE_ID"
 
-  # unset KOPS_STATE_STORE
-  # unset AWS_ACCESS_KEY_ID
-  # unset AWS_SECRET_ACCESS_KEY
-
-  echo "I am: $(aws iam get-user | jq -r '.User.UserName')"
-  env
-
-  echo "[💥 Teardown] Deleting IAM User $UNIQUE_ID ..."
-  delete_iam_user $UNIQUE_ID
-  echo "[💥 Teardown] Done deleting IAM User $UNIQUE_ID"
+  unset KOPS_STATE_STORE
 }
 
 # Main
@@ -148,16 +97,6 @@ UNIQUE_ID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 
 echo "The unique name for your resources is $UNIQUE_ID"
 echo "The cluster name is $CLUSTER_NAME"
-
-
-echo "[🚧 Creation] Building IAM User $UNIQUE_ID ..."
-CREDENTIALS=$(build_iam_user $UNIQUE_ID)
-echo "[🚧 Creation] Done building IAM User $UNIQUE_ID"
-
-export AWS_ACCESS_KEY_ID=$(echo "$CREDENTIALS" | jq -r '.key')
-export AWS_SECRET_ACCESS_KEY=$(echo "$CREDENTIALS" | jq -r '.secret')
-echo "Created IAM user identified by $AWS_ACCESS_KEY_ID"
-
 
 echo "[🚧 Creation] Building kops state store $UNIQUE_ID ..."
 sleep 5  # wait for the previous command to propagate a bit on AWS' side
@@ -199,7 +138,7 @@ CLUSTER_USER_NAME=$(echo $CLUSTER_CREDENTIALS | jq -r '.username')
 CLUSTER_PASSWORD=$(echo $CLUSTER_CREDENTIALS | jq -r '.password')
 
 echo "[🏃 Running] Nice, let's wait a bit for fluentd to ship all of the logs to ES..."
-sleep 10
+sleep 20
 
 echo "[🏃 Running] Querying the Elasticsearch API..."
 
@@ -211,7 +150,7 @@ echo $FIZZBUZZ
 
 echo "[🏃 Running] Well that was anticlimactic."
 
-exit
+read -p "Press enter to tear down"
 
 fizzbuzz_teardown $UNIQUE_ID $CLUSTER_NAME
 
