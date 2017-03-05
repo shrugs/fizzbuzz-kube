@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fizzbuzzer
+  labels:
+    component: fizzbuzzer
+spec:
+  clusterIP: None
+  ports:
+    - port: 80
+      name: web
+  selector:
+    component: fizzbuzzer
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: fizzbuzzer
+  namespace: default
+  labels:
+    component: fizzbuzzer
+spec:
+  serviceName: fizzbuzzer
+  replicas: 100
+  template:
+    metadata:
+      name: fizzbuzzer
+      labels:
+        component: fizzbuzzer
+    spec:
+      containers:
+        - name: fizzbuzzer
+          image: shrugs/fizzbuzzer:latest
+          imagePullPolicy: Always
+          env:
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            limits:
+              cpu: 20m
+            requests:
+              cpu: 20m

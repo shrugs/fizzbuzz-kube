@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elasticsearch-logging
+  namespace: kube-system
+---
+apiVersion: storage.k8s.io/v1beta1
+kind: StorageClass
+metadata:
+  name: default
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+---
+# elasticsearch-transport Service
+# handles discovery for the elasticsearch transport port
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-transport
+  namespace: kube-system
+  labels:
+    component: elasticsearch-transport
+spec:
+  clusterIP: None
+  selector:
+    component: elasticsearch-logging
+  ports:
+    - port: 9300
+      targetPort: transport
+---
+# elasticsearch-logging Service
+# handles client access to the elasticsearch cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-logging
+  namespace: kube-system
+  labels:
+    component: elasticsearch-logging
+spec:
+  selector:
+    component: elasticsearch-logging
+  ports:
+    - port: 9200
+      targetPort: http
+---
+# originally based on:
+# https://github.com/kubernetes/kubernetes/blob/master/cluster/addons/fluentd-elasticsearch/es-controller.yaml
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-logging
+  namespace: kube-system
+  labels:
+    component: elasticsearch-logging
+spec:
+  serviceName: elasticsearch-logging
+  replicas: 1
+  template:
+    metadata:
+      name: elasticsearch-logging
+      labels:
+        component: elasticsearch-logging
+    spec:
+      serviceAccountName: elasticsearch-logging
+      containers:
+        - name: elasticsearch-logging
+          image: shrugs/elasticsearch-logging:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: transport
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          env:
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE
+              value: elasticsearch-transport
+          resources:
+            limits:
+              cpu: 200m
+            requests:
+              cpu: 100m
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        annotations:
+          volume.alpha.kubernetes.io/storage-class: default
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+            requests:
+                storage: 10Gi
