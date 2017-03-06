@@ -2,6 +2,8 @@
 
 A distributed, fault-tolerant, production-ready FizzBuzz implementation for the microservice cloud.
 
+![example.gif](example.gif)
+
 ## Run the FizzBuzz
 
 Dependencies:
@@ -41,3 +43,6 @@ Then, finally,
 
 Someone had to.
 
+### Issues
+
+Occasionally there are DNS and connectivity issues, but I'm just going to ignore them because I've spent enough time on this as it is and it works most of the time.
